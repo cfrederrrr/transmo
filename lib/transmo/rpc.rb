@@ -483,9 +483,9 @@ module Transmo
 
     def get_fresh_session(attempts = 0)
       head_resp = @http.head(Transmo::RPC::DEFAULT_PATH)
-      if @sid = head_resp[Transmo::RPC::SID_HEADER]
+      unless @sid = head_resp[Transmo::RPC::SID_HEADER]
 
-        if attempts > @try_refresh_max
+        if attempts >= @try_refresh_max
           raise Transmo::NoSessionError,
             "unable to establish session with `#{@target}'"
         else
