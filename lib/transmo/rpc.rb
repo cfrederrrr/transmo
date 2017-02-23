@@ -419,7 +419,7 @@ module Transmo
     attr_accessor :try_refresh_max
     attr_reader :host
 
-    def initialize(url:, port: Transmo::RPC::DEFAULT_PORT, p_addr: :ENV,
+    def initialize(url, port: Transmo::RPC::DEFAULT_PORT, p_addr: :ENV,
                    p_port: nil, p_user: nil, p_pass: nil)
 
       s, host = url.match(/(http(s)?:\/\/)?([^\/]+)/)[2,3]
