@@ -1,14 +1,8 @@
-require "net/http"
+require "net/https"
 require "json"
 
-#
-#
-#
 module Transmo
 
-  #
-  #
-  #
   module RPC
 
     #
@@ -41,49 +35,47 @@ module Transmo
 
     #
     # Per {transmission api specifications
+    # }[https://trac.transmissionbt.com/browser/trunk/extras/rpc-spec.txt#L58]
+    # Most Transmission RPC servers require a X-Transmission-Session-Id
+    #
+    # It should be noted that this will mean submitting two requests when the
+    # session ID expires
+    # So, the correct way to handle a 409 response is to update your
+    # X-Transmission-Session-Id and to resend the previous request.
+    #
+    SID_HEADER = "X-Transmission-Session-Id"
+
+    #
+    # Per {transmission api specifications
     # }[https://trac.transmissionbt.com/browser/trunk/extras/rpc-spec.txt#L49]
     # HTTP POSTing a JSON-encoded request is the preferred way of
     # communicating
     #
     class Request < Net::HTTP::Post
-      attr_reader :rpc_method
-      attr_reader :rpc_tag
+      attr_reader :rpc_method, :rpc_tag
 
-      #
-      # Per {transmission api specifications
-      # }[https://trac.transmissionbt.com/browser/trunk/extras/rpc-spec.txt#L58]
-      # Most Transmission RPC servers require a X-Transmission-Session-Id
-      #
-      # It should be noted that this will mean submitting two requests when the
-      # session ID expires
-      # So, the correct way to handle a 409 response is to update your
-      # X-Transmission-Session-Id and to resend the previous request.
-      #
-      SID_HEADER = "X-Transmission-Session-Id"
-
-      #
-      #
-      #
       ARGUMENTS = []
 
-      def initialize(sid:, arguments: {}, method: self.class::RPC_METHOD)
-        # p sid
-        # p arguments
-        # p method
-        # p Transmo::RPC::DEFAULT_PATH
-        # p SID_HEADER => sid
-        super Transmo::RPC::DEFAULT_PATH, SID_HEADER => sid
-              #self.class::METHOD,
-              #self.class::REQUEST_HAS_BODY,
-              #self.class::RESPONSE_HAS_BODY,
+      def initialize(sid: nil, arguments: {}, method: self.class::RPC_METHOD)
+        super Transmo::RPC::DEFAULT_PATH,
+              Transmo::RPC::SID_HEADER => sid if sid
 
         @rpc_method = method
         @rpc_args = arguments
+        @rpc_tag = self.hash % 100_000
 
-        @_body = {"method" => @rpc_method, "tag" => self.hash % 100_000}
+        @_body = {"method" => @rpc_method, "tag" => @tag}
         @_body["arguments"] = @rpc_args unless @rpc_args.empty?
 
         @body = @_body.to_json.encode(Transmo::RPC::ENCODING)
+      end
+
+      def tag
+        @tag
+      end
+
+      def tag=(tag)
+        @_body["tag"] = @tag = tag
       end
 
       def to_json
@@ -98,129 +90,55 @@ module Transmo
       def validate_response_tag
       end
 
-      def self.rpc2rb(*args)
-        args.each do |arg|
-
-          attribute = arg.dup
-          attribute.gsub! /\W+/, "_"
-          attribute.gsub! /_$/, ""
-          attribute.scan(/[A-Z]/).each do |c|
-            attribute.gsub! c, "_" + c.downcase
-          end
-          attribute.squeeze! "_"
-
-          define_method "#{attribute}=" do |a|
-            @rpc_args[arg] = a
-          end
-
-          define_method attribute do
-            @rpc_args[arg]
-          end
-
-        end
+      def self._s2rpc(sym)
+        key = sym.to_s
+        key.gsub!(/_bps/, "\s(B/s)")
+        key.gsub!('_', '-')
       end
-    end
 
-    #
-    #
-    #
-    class Response
-      def initialize(result, arguments, tag)
-        @result, @arguments, @tag = result, arguments, tag
-      end
     end
   end
 
-  #
-  #
-  #
   module Torrent
     module Action
 
-      #
-      #
-      #
       ARGUMENTS = ["ids"]
     end
 
-    #
-    #
-    #
     class Start < Transmo::RPC::Request
       include Transmo::Torrent::Action
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-start"
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class StartNow < Transmo::RPC::Request
       include Transmo::Torrent::Action
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-start-now"
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class Stop < Transmo::RPC::Request
       include Transmo::Torrent::Action
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-stop"
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class Verify < Transmo::RPC::Request
       include Transmo::Torrent::Action
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-verify"
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class Reannounce < Transmo::RPC::Request
       include Transmo::Torrent::Action
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-reannounce"
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class Set < Transmo::RPC::Request
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-set"
 
-      #
-      #
-      #
       ARGUMENTS = [
         "bandwidthPriority",
         "downloadLimit",
@@ -245,31 +163,17 @@ module Transmo
         "uploadLimit",
         "uploadLimited"
       ]
-
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class Get < Transmo::RPC::Request
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-get"
 
-      #
-      #
-      #
       ARGUMENTS = [
         "fields",
         "ids"
       ]
 
-      #
-      #
-      #
       FIELDS = [
         "activityDate",
         "addedDate",
@@ -340,23 +244,12 @@ module Transmo
         "webseeds",
         "webseedsSendingToUs"
       ]
-
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class Add < Transmo::RPC::Request
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-add"
 
-      #
-      #
-      #
       ARGUMENTS = [
         "cookies",
         "download-dir",
@@ -371,89 +264,45 @@ module Transmo
         "priority-low",
         "priority-normal"
       ]
-
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class Remove < Transmo::RPC::Request
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-remove"
 
-      #
-      #
-      #
       ARGUMENTS = [
         "ids",
         "delete-local-data"
       ]
-
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class SetLocation < Transmo::RPC::Request
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-set-location"
 
-      #
-      #
-      #
       ARGUMENTS = [
         "ids",
         "location",
         "move"
       ]
-
-      rpc2rb *ARGUMENTS
     end
 
-    #
-    #
-    #
     class RenamePath < Transmo::RPC::Request
 
-      #
-      #
-      #
       RPC_METHOD = "torrent-rename-path"
 
-      #
-      #
-      #
       ARGUMENTS = [
         "ids",
         "path",
         "name"
       ]
-
-      rpc2rb *ARGUMENTS
     end
   end
 
-  #
-  #
-  #
   module Session
 
-    #
-    #
-    #
     class Request < Transmo::RPC::Request
 
-      #
-      #
-      #
       ARGUMENTS = [
         "alt-speed-down",
         "alt-speed-enabled",
@@ -506,19 +355,10 @@ module Transmo
       ]
     end
 
-    #
-    #
-    #
     class Set < Transmo::Session::Request
 
-      #
-      #
-      #
       RPC_METHOD = "session-set"
 
-      #
-      #
-      #
       exceptions = [
         "blocklist-size",
         "config-dir",
@@ -526,150 +366,134 @@ module Transmo
         "rpc-version-minimum",
         "version"
       ]
-
-      rpc2rb *ARGUMENTS - exceptions
     end
 
-    #
-    #
-    #
     class Get < Transmo::Session::Request
 
-      #
-      #
-      #
       RPC_METHOD = "session-get"
     end
 
-    #
-    #
-    #
     class Stats < Transmo::Session::Request
 
-      #
-      #
-      #
       RPC_METHOD = "session-stats"
     end
 
     class Close < Transmo::RPC::Request
 
-      #
-      #
-      #
       RPC_METHOD = "session-close"
-
-      rpc2rb *ARGUMENTS
     end
   end
 
-  #
-  #
-  #
   module Queue
 
-    #
-    #
-    #
     class Request
 
-      #
-      #
-      #
       ARGUMENTS = ["ids"]
     end
 
-    #
-    #
-    #
-    class MoveTop < Transmo::Queue::Request
+    class Movetop < Transmo::Queue::Request
 
-      #
-      #
-      #
       RPC_METHOD = "queue-move-top"
     end
 
-    #
-    #
-    #
-    class MoveUp < Transmo::Queue::Request
+    class Moveup < Transmo::Queue::Request
 
-      #
-      #
-      #
       RPC_METHOD = "queue-move-up"
     end
 
-    #
-    #
-    #
-    class MoveDown < Transmo::Queue::Request
+    class Movedown < Transmo::Queue::Request
 
-      #
-      #
-      #
       RPC_METHOD = "queue-move-down"
     end
 
-    #
-    #
-    #
-    class MoveBottom < Transmo::Queue::Request
+    class Movebottom < Transmo::Queue::Request
 
-      #
-      #
-      #
       RPC_METHOD = "queue-move-bottom"
     end
   end
 
-  #
-  #
-  #
+
+  NoSessionError = Class.new StandardError
+
   class Client
+    attr_accessor :try_refresh_max
+    attr_reader :host
 
-    def initialize(hostname)
-      hostname.gsub!(/https?:\/\//, '')
-      @uri = URI.parse "http://#{hostname}:#{Transmo::RPC::DEFAULT_PORT}"
-      @http = Net::HTTP.new(@uri.host, @uri.port)
-      @sid = @http.head(Transmo::RPC::DEFAULT_PATH)["X-Transmission-Session-Id"]
+    def initialize(url:, port: Transmo::RPC::DEFAULT_PORT, p_addr: :ENV,
+                   p_port: nil, p_user: nil, p_pass: nil)
+
+      s, host = url.match(/(http(s)?:\/\/)?([^\/]+)/)[2,3]
+
+      @host = host
+      @target = "http#{s}://#{@host}"
+      @try_refresh_max = 3
+      @http = Net::HTTP.new host, port, p_addr, p_port, p_user, p_pass
+
+      if s
+        @http.use_ssl = true
+        @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      end
+
+      get_fresh_session
     end
-
-    attr_accessor :uri
 
     def blocklist
       req = Transmo::RPC::Request.new sid: @sid, method: "blocklist-update"
-      @http.request req
+      request req
     end
 
     def port_test
       req = Transmo::RPC::Request.new sid: @sid, method: "port-test"
-      @http.request req
+      request req
     end
 
     def free_space(path)
       req = Transmo::RPC::Request.new sid: @sid, method: "free-space"
-      @http.request req
+      request req
     end
 
     def torrent(sym, args = {})
       klass = Transmo::Torrent.const_get sym.capitalize
       req = klass.new sid: @sid, arguments: args
-      @http.request req
+      request req
     end
 
     def session(sym, args = {})
       klass = Transmo::Session.const_get sym.capitalize
       req = klass.new sid: @sid, arguments: args
-      @http.request req
+      request req
     end
 
     def queue(sym, args = {})
       klass = Transmo::Queue.const_get sym.capitalize
       req = klass.new sid: @sid, arguments: args
-      @http.request req
+      request req
     end
-  end
 
+    def request(req)
+      resp = @http.request req
+
+      if resp.is_a? Net::HTTPConflict
+        get_fresh_session
+        resp = @http.request req
+      end
+
+      resp
+    end
+
+    def get_fresh_session(attempts = 0)
+      head_resp = @http.head(Transmo::RPC::DEFAULT_PATH)
+      if @sid = head_resp[Transmo::RPC::SID_HEADER]
+
+        if attempts > @try_refresh_max
+          raise Transmo::NoSessionError,
+            "unable to establish session with `#{@target}'"
+        else
+          get_fresh_session attempts + 1
+        end
+
+      end
+    end
+
+  end
 end
