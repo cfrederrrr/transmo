@@ -31,8 +31,7 @@ transmo.torrent :get, fields: ['name', 'activityDate'], ids: [*1..10]
 ```
 
 ### Demo client!
-This client will not make requests, it will simply create a request object
-and pretty print the JSON body instead of trying to send it to a server. This can be very handy for troubleshooting in irb (or not!).
+This client will not submit requests under any circumstance. Instead it will simply create a request object and pretty print the JSON body. This can be very handy for troubleshooting request-formats in irb (or not!).
 
 ```ruby
 require 'transmo'
@@ -41,6 +40,8 @@ transmo = Transmo::Client.new '::', demo: true
 
 transmo.torrent :get, ids: [*1..4], fields: ['name', 'id']
 ```
+
+will automatically print this to stdout
 
 ```json
 {
