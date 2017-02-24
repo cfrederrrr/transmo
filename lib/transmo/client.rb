@@ -2,22 +2,27 @@ class Transmo::Client
   attr_accessor :try_refresh_max
   attr_reader :host
 
-  def initialize(url, port: Transmo::RPC::DEFAULT_PORT, p_addr: :ENV,
-                 p_port: nil, p_user: nil, p_pass: nil)
+  def initialize(url, port: Transmo::RPC::DEFAULT_PORT, demo: false,
+                 p_addr: :ENV,p_port: nil, p_user: nil, p_pass: nil)
 
     s, host = url.match(/(http(s)?:\/\/)?([^\/]+)/)[2,3]
 
     @host = host
     @target = "http#{s}://#{@host}"
     @try_refresh_max = 3
-    @http = Net::HTTP.new host, port, p_addr, p_port, p_user, p_pass
 
-    if s
-      @http.use_ssl = true
-      @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    if demo
+      @demo = demo
+    else
+      @http = Net::HTTP.new host, port, p_addr, p_port, p_user, p_pass
+
+      if s
+        @http.use_ssl = true
+        @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      end
+
+      get_fresh_session
     end
-
-    get_fresh_session
   end
 
   def blocklist
@@ -54,14 +59,18 @@ class Transmo::Client
   end
 
   def request(req)
-    resp = @http.request req
-
-    if resp.is_a? Net::HTTPConflict
-      get_fresh_session
+    if @demo
+      puts req.inspect
+    else
       resp = @http.request req
-    end
 
-    resp
+      if resp.is_a? Net::HTTPConflict
+        get_fresh_session
+        resp = @http.request req
+      end
+
+      resp
+    end
   end
 
   def get_fresh_session(attempts = 0)

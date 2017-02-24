@@ -18,7 +18,7 @@ class Transmo::RPC::Request < Net::HTTP::Post
     @rpc_tag = self.hash % 100_000
 
     @rpc_args.keys.each do |key|
-      unless self.class::ARGUMENTS.include? key
+      unless self.class::ARGUMENTS.include? key.to_s
         @rpc_args[send("#{key}_rpckey")] = @rpc_args[key]
         @rpc_args.delete key
       end
@@ -87,7 +87,7 @@ class Transmo::RPC::Request < Net::HTTP::Post
         end
       end
 
-      str.squeeze('-_')
+      str.squeeze("-_")
     end
 
     def rpc2rb(arg)
