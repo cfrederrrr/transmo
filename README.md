@@ -4,7 +4,7 @@ A library for interfacing with a Transmission RPC
 ## Version
 
 ### Gem
-<strong>0.0.0</strong>
+<strong>0.0.1</strong>
 
 ### RPC
 <strong>2.8</strong>
