@@ -49,9 +49,6 @@ class Transmo::RPC::Request < Net::HTTP::Post
   class << self
     protected
 
-    def validate_response_tag
-    end
-
     def convert_case(style, obj)
       str = obj.to_s
 

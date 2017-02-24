@@ -13,16 +13,18 @@ class Transmo::Client
 
     if demo
       @demo = demo
-    else
-      @http = Net::HTTP.new host, port, p_addr, p_port, p_user, p_pass
-
-      if s
-        @http.use_ssl = true
-        @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      end
-
-      get_fresh_session
+      extend Transmo::Client::Demo
+      return
     end
+
+    @http = Net::HTTP.new host, port, p_addr, p_port, p_user, p_pass
+
+    if s
+      @http.use_ssl = true
+      @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+    end
+
+    get_fresh_session
   end
 
   def blocklist
@@ -59,18 +61,25 @@ class Transmo::Client
   end
 
   def request(req)
-    if @demo
-      puts req.inspect
-    else
+    resp = @http.request req
+
+    if resp.is_a? Net::HTTPConflict
+      get_fresh_session
       resp = @http.request req
-
-      if resp.is_a? Net::HTTPConflict
-        get_fresh_session
-        resp = @http.request req
+    elsif resp.is_a? Net::HTTPOK
+      resptag = JSON.parse(resp.body)["tag"]
+      if resptag == req.tag
+        return true
+      else
+        raise Transmo::TagError,
+          "response tag `#{resptag}' does not match request tag #{req.tag}!"
       end
-
-      resp
+    else
+      raise Transmo::ResponseError,
+        "#{self} could not understand the response #{resp} from #{@target}"
     end
+
+    resp
   end
 
   def get_fresh_session(attempts = 0)
@@ -86,4 +95,9 @@ class Transmo::Client
 
     end
   end
+
+  private
+  def validate_response_tag(req, resp)
+  end
+
 end
