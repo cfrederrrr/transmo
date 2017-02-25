@@ -16,6 +16,8 @@ See the [Transmission RPC-spec](https://trac.transmissionbt.com/browser/trunk/ex
 Full RDoc coming soon, but it will pretty much just be links to transmission's rpc spec.
 
 ## Usage
+These two examples are effectively the same. The second gives you more granular control in case you don't already know what arguments you want the request to contain at the time of initialization.
+
 ```ruby
 require 'transmo'
 
@@ -30,6 +32,18 @@ transmo.session :get
 
 # look at the name and activity date of the first 10 torrents in your list
 transmo.torrent :get, fields: ['name', 'activityDate'], ids: [*1..10]
+```
+
+```ruby
+# create a raw request a la Net::HTTP subclasses
+get = Transmo::Torrent::Get.new
+
+# add arguments later
+get.fields = ['name', 'activityDate']
+get.ids = [*1..10]
+
+# now that it's ready, submit the request via the client
+transmo.request get
 ```
 
 ### Syntax

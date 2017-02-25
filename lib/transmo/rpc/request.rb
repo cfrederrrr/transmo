@@ -14,14 +14,9 @@ class Transmo::RPC::Request < Net::HTTP::Post
           Transmo::RPC::SID_HEADER => sid if sid
 
     @rpc_method = method
-    @rpc_args = arguments
     @rpc_tag = self.hash % 100_000
-
-    @rpc_args.keys.each do |key|
-      unless self.class::ARGUMENTS.include? key.to_s
-        @rpc_args[send("#{key}_rpckey")] = @rpc_args[key]
-        @rpc_args.delete key
-      end
+    @rpc_args = arguments.keys.inject({}) do |base, key|
+      base.merge send("#{key}_rpckey") => arguments[key]
     end
 
     @_body = {"method" => @rpc_method, "tag" => @rpc_tag}
@@ -93,11 +88,15 @@ class Transmo::RPC::Request < Net::HTTP::Post
       mname = convert_case :snake, argstr
 
       define_method mname do
-        @_body[arg]
+        key = send "#{mname}_rpckey"
+        @rpc_args[key]
       end
 
       define_method "#{mname}=" do |val|
-        @_body[arg] = val
+        key = send "#{mname}_rpckey"
+        @rpc_args[key] = val
+        @_body["arguments"] ||= {}
+        @_body["arguments"].merge! @rpc_args
       end
 
       define_method "#{mname}_rpckey" do
