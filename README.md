@@ -80,6 +80,9 @@ transmo.torrent :set, ids: [*1..3], "seedRatioLimit" => 2.5
 ```
 
 This is strictly cosmetic, as the client parses your input to look up the key expected by the RPC server.
+
+Keep in mind that argument methods on raw request will always be `snake_case`.
+
 If you're not sure what arguments are available, you can jump into `irb` and...
 
 ```ruby
