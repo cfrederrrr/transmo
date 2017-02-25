@@ -1,5 +1,6 @@
 # Transmo
-A library for interfacing with a Transmission RPC
+A library for interfacing with a Transmission RPC Server
+Derived from [Transmission RPC-spec](https://trac.transmissionbt.com/browser/trunk/extras/rpc-spec.txt), I tried to get as close to verbatim as possible, but everyone writes bugs.
 
 ## Version
 
@@ -12,6 +13,7 @@ A library for interfacing with a Transmission RPC
 ## Documentation
 See the [Transmission RPC-spec](https://trac.transmissionbt.com/browser/trunk/extras/rpc-spec.txt) to learn the appropriate arguments for the RPC methods.
 
+Full RDoc coming soon, but it will pretty much just be links to transmission's rpc spec.
 
 ## Usage
 ```ruby
@@ -30,45 +32,15 @@ transmo.session :get
 transmo.torrent :get, fields: ['name', 'activityDate'], ids: [*1..10]
 ```
 
-### Demo client!
-This client will not submit requests under any circumstance. Instead it will simply create a request object and pretty print the JSON body. This can be very handy for troubleshooting request-formats in irb (or not!).
-
-```ruby
-require 'transmo'
-
-transmo = Transmo::Client.new '::', demo: true
-
-transmo.torrent :get, ids: [*1..4], fields: ['name', 'id']
-```
-
-will automatically print this to stdout
-
-```json
-{
-  "method": "torrent-get",
-  "tag": 22917,
-  "arguments": {
-    "ids": [
-      1,
-      2,
-      3,
-      4
-    ],
-    "fields": [
-      "name",
-      "id"
-    ]
-  }
-}
-```
-
 ### Syntax
 Arguments can be:
 - `"strings"`
 - `:symbols`
 - `camelCase`
 - `snake_case`
-- `kebab-case` (kebab case must be exact match string)
+- `kebab-case`
+
+kebab case must be exact string match for the RPC argument.
 
 ``` ruby
 # all of these produce the same request
@@ -104,3 +76,44 @@ Transmo::Session::Get::ARGUMENTS
 # etc...
 ```
 to see what the RPC server is expecting.
+
+### Demo client!
+This client will not submit requests under any circumstance. Instead it will simply create a request object and pretty print the JSON body. This can be very handy for troubleshooting request-formats in irb (or not!).
+
+```ruby
+require 'transmo'
+
+transmo = Transmo::Client.new '::', demo: true
+
+transmo.torrent :get, ids: [*1..4], fields: ['name', 'id']
+```
+
+will automatically print this to stdout
+
+```json
+{
+  "method": "torrent-get",
+  "tag": 22917,
+  "arguments": {
+    "ids": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "fields": [
+      "name",
+      "id"
+    ]
+  }
+}
+```
+
+The demo client can run concurrently with a real client.
+
+```ruby
+demo = Transmo::Client.new '::', demo: true
+# => #<Transmo::Client:0x007f8bbf0fafa8 @demo=true>
+transmo = Transmo::Client.new ENV['TRANSMISSION_ADDR']
+# => #<Transmo::Client:0x007fe1849a8a40 @host="127.0.0.1", @target="http://127.0.0.1", @try_refresh_max=3, @http=#<Net::HTTP 127.0.0.1:9091 open=false>, @sid="7TefPQ9O8eZ6uyKHy2qC7yH8bYMMPKnH8CB94DmaduTkJ0jY">
+```
